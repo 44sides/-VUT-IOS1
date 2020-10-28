@@ -1,0 +1,190 @@
+#!/bin/sh
+export POSIXLY_CORRECT=yes
+
+EXPRESSIONcheck=0
+
+STRSKIP=0
+
+DIRPROCESS=0
+
+length=$(tput cols)
+length=$((length-13))
+
+
+
+IFS=' ' 
+h_1=0
+h_2=0
+h_3=0
+h_4=0
+h_5=0
+h_6=0
+h_7=0
+h_8=0
+h_9=0
+
+
+
+while getopts "i:n" opt
+do
+	case "$opt" in
+
+i) 
+	EXPRESSION="$OPTARG"
+	EXPRESSIONcheck=1
+	;;
+n) 
+	echo n
+	;;
+
+*) 
+	printf ' FORMAT_ERROR:\t%s [-i FILE_ERE] [-n] [DIR]\n' "$0" >&2
+	exit 1
+	;;
+
+	esac
+done
+
+shift $(( OPTIND-1 ))
+
+
+
+if [ $# -gt 1 ]; then
+	exit 0
+elif [ $# -eq 0 ]; then
+	DIR=$(pwd)
+elif [ $# -eq 1 ]; then
+	DIR=$1
+fi
+	if [ ! -d "$DIR" ]; then
+		printf " DIR_ERROR:\tDirectory does not exist\n" >&2
+		exit 1
+	fi
+
+
+if [ "$EXPRESSION" ]; then
+	if printf '%s' "$DIR" | grep -qE "$EXPRESSION"; then
+		printf " FILE_ERE_ERROR: FILE_ERE cannot cover the root directory name\n" >&2
+		exit 1
+	fi
+fi
+
+
+#DIR process
+DIRPROCESS=$(printf '%s' "$DIR" | sed -n '/\/$/p') 
+if [ "$DIRPROCESS" ]; then
+	DIR=$(printf '%s' "$DIR" | rev | cut -c 2-| rev)
+fi
+
+
+
+ND=$(find "$DIR" -type d | wc -l)
+NF=$(find "$DIR" -type f | wc -l) # in detail
+
+
+
+row=2 #(1 - pwd)
+
+minusD=0
+
+DIRnum=${#DIR}
+#MINUS number of directories with -i
+if [ $EXPRESSIONcheck -eq 1 ]; then
+
+while [ $row -ne $((ND+1)) ]
+do
+
+if [ "$(find "$DIR" -type d | sed -n "$row"p | cut -c "$((DIRnum+2))"-| grep -E "$EXPRESSION" | tr " " "_")" ]; then
+minusD=$((minusD+1))
+fi 
+row=$((row+1))
+
+done
+
+fi
+
+
+
+row=1
+
+minusF=0
+
+#main
+while [ $row -ne $((NF+1)) ]
+do
+
+
+if [ $EXPRESSIONcheck -eq 1 ]; then
+
+if [ "$(find "$DIR" -type f | sed -n "$row"p | cut -c "$((DIRnum+2))"- | grep -E "$EXPRESSION" | tr " " "_")" ]; then
+minusF=$((minusF+1))
+STRSKIP=1
+
+fi
+
+fi
+
+
+if [ "$STRSKIP" -eq 0 ]; then
+
+size=$(wc -c < "$(find "$DIR" -type f | sed -n "$row"p)" | awk '{print $1}')
+
+	if [ "$size" -lt 100 ]; then
+			h_1=$((h_1+1))
+	elif [ "$size" -lt 1024 ]; then
+			h_2=$((h_2+1))
+	elif [ "$size" -lt 10240 ]; then
+			h_3=$((h_3+1))
+	elif [ "$size" -lt 102400 ]; then
+			h_4=$(( h_4+1 ))
+	elif [ "$size" -lt 1048576 ]; then
+			h_5=$(( h_5+1 ))
+	elif [ "$size" -lt 10485760 ]; then
+			h_6=$(( h_6+1 ))
+	elif [ "$size" -lt 10485760 ]; then
+			h_7=$(( h_7+1 ))
+	elif [ "$size" -lt 1073741824 ]; then
+			h_8=$(( h_8+1 ))
+	elif [ "$size" -ge 1073741824 ]; then
+			h_9=$(( h_9+1 ))
+	fi
+
+fi
+
+row=$((row+1))
+
+STRSKIP=0
+
+done
+
+
+
+hashes() {
+if [ "$1" -ne 0 ]; then
+tmp=$1
+	while [ "$tmp" -ne 0 ]
+	do
+	printf "#"
+	tmp=$((tmp-1))
+	done	
+fi
+
+printf '\n'
+}
+
+
+
+echo "Root directory: $DIR"
+echo "Directories: $((ND-minusD))"
+echo "All files: $((NF-minusF))"
+
+echo "File size histogram:"
+printf "  <100 B  : " ; hashes "$h_1"
+printf "  <1 KiB  : " ; hashes "$h_2"
+printf "  <10 KiB : " ; hashes "$h_3"
+printf "  <100 KiB: " ; hashes "$h_4"
+printf "  <1 MiB  : " ; hashes "$h_5"
+printf "  <10 MiB : " ; hashes "$h_6"
+printf "  <100 MiB: " ; hashes "$h_7"
+printf "  <1 GiB  : " ; hashes "$h_8"
+printf "  >=1 GiB : " ; hashes "$h_9"
