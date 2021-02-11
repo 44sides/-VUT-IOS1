@@ -1,2 +1,2 @@
 # -VUT-IOS1
-Operating Systems Project - Directory explorer.
+Operating Systems Project - Simple directory explorer.
